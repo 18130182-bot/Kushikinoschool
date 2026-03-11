@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>School Discord Chat</title>
+<title>School Chat</title>
 
 <style>
 
@@ -17,31 +17,6 @@ display:flex;
 height:100vh;
 }
 
-/* サーバーバー */
-
-#servers{
-width:70px;
-background:#1e1f22;
-display:flex;
-flex-direction:column;
-align-items:center;
-padding-top:10px;
-}
-
-.server{
-width:50px;
-height:50px;
-background:#5865f2;
-border-radius:50%;
-margin:6px;
-display:flex;
-align-items:center;
-justify-content:center;
-cursor:pointer;
-}
-
-/* チャンネル */
-
 #channels{
 width:220px;
 background:#313338;
@@ -51,17 +26,11 @@ overflow-y:auto;
 
 .channel{
 padding:8px;
-border-radius:5px;
+border-radius:6px;
 cursor:pointer;
-margin:4px 0;
+margin:5px 0;
 background:#383a40;
 }
-
-.channel:hover{
-background:#4a4d54;
-}
-
-/* メイン */
 
 #main{
 flex:1;
@@ -69,16 +38,10 @@ display:flex;
 flex-direction:column;
 }
 
-/* ヘッダー */
-
 #header{
 background:#313338;
 padding:10px;
-display:flex;
-justify-content:space-between;
 }
-
-/* チャット */
 
 #chat{
 flex:1;
@@ -87,16 +50,23 @@ padding:10px;
 }
 
 .message{
-margin:8px 0;
+display:flex;
+margin:10px 0;
+cursor:pointer;
 }
 
-.message img{
+.avatar{
+width:35px;
+height:35px;
+border-radius:50%;
+margin-right:8px;
+}
+
+.content-img{
 max-width:200px;
 border-radius:6px;
 margin-top:5px;
 }
-
-/* 入力 */
 
 #input{
 display:flex;
@@ -121,7 +91,24 @@ border-radius:6px;
 cursor:pointer;
 }
 
-#login{
+#menu{
+position:fixed;
+background:#1e1f22;
+border-radius:6px;
+padding:5px;
+display:none;
+}
+
+#menu div{
+padding:8px;
+cursor:pointer;
+}
+
+#menu div:hover{
+background:#444;
+}
+
+#setup{
 position:fixed;
 top:0;
 left:0;
@@ -134,29 +121,11 @@ align-items:center;
 justify-content:center;
 }
 
-#login input{
+#setup input{
 padding:10px;
 margin:5px;
 border-radius:6px;
 border:none;
-}
-
-.hidden{
-display:none;
-}
-
-/* スマホ */
-
-@media (max-width:700px){
-
-#channels{
-width:160px;
-}
-
-#servers{
-width:55px;
-}
-
 }
 
 </style>
@@ -164,10 +133,6 @@ width:55px;
 </head>
 
 <body>
-
-<div id="servers">
-<div class="server">🏫</div>
-</div>
 
 <div id="channels">
 
@@ -180,68 +145,76 @@ width:55px;
 
 <div id="main">
 
-<div id="header">
-
-<div id="roomTitle">チャット</div>
-<div>👥 <span id="count">0</span></div>
-
-</div>
+<div id="header">チャット</div>
 
 <div id="chat"></div>
 
 <div id="input">
 
 <input id="msg" placeholder="メッセージ">
-
 <input type="file" id="imgSend">
-
 <button onclick="send()">送信</button>
 
 </div>
 
 </div>
 
-<div id="login">
+<div id="menu">
 
-<h2>School Chat</h2>
+<div onclick="copyMsg()">コピー</div>
+<div onclick="likeMsg()">👍リアクション</div>
+<div onclick="deleteMsg()">削除</div>
 
-<input id="pass" type="password" placeholder="password">
-<button onclick="login()">ログイン</button>
+</div>
+
+<div id="setup">
+
+<h2>プロフィール設定</h2>
 
 <input id="username" placeholder="ユーザー名">
+<input type="file" id="avatar">
+
+<button onclick="start()">開始</button>
 
 </div>
 
 <script>
 
-const PASSWORD="Smyr5972"
-
 let username=""
+let avatar="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+
 let currentRoom=""
 let rooms={}
-let members={}
 
-function login(){
+let selectedRoom=""
+let selectedIndex=0
 
-let pass=document.getElementById("pass").value
-
-if(pass!==PASSWORD){
-
-alert("パスワード違います")
-return
-
-}
+function start(){
 
 username=document.getElementById("username").value
 
 if(username===""){
-
 alert("ユーザー名入力")
 return
+}
+
+let file=document.getElementById("avatar").files[0]
+
+if(file){
+
+let reader=new FileReader()
+
+reader.onload=function(e){
+
+avatar=e.target.result
 
 }
 
-document.getElementById("login").classList.add("hidden")
+reader.readAsDataURL(file)
+
+}
+
+document.getElementById("setup").style.display="none"
 
 }
 
@@ -249,12 +222,9 @@ function createRoom(){
 
 let name=document.getElementById("roomName").value
 
-if(name==="") return
-
 if(!rooms[name]){
 
 rooms[name]=[]
-members[name]=[]
 
 }
 
@@ -291,9 +261,7 @@ function join(room){
 
 currentRoom=room
 
-members[room].push(username)
-
-document.getElementById("roomTitle").innerText="# "+room
+document.getElementById("header").innerText="# "+room
 
 render()
 
@@ -306,7 +274,12 @@ let file=document.getElementById("imgSend").files[0]
 
 if(text){
 
-rooms[currentRoom].push({user:username,text:text})
+rooms[currentRoom].push({
+user:username,
+avatar:avatar,
+text:text,
+like:0
+})
 
 }
 
@@ -316,7 +289,12 @@ let reader=new FileReader()
 
 reader.onload=function(e){
 
-rooms[currentRoom].push({user:username,img:e.target.result})
+rooms[currentRoom].push({
+user:username,
+avatar:avatar,
+img:e.target.result,
+like:0
+})
 
 render()
 
@@ -331,8 +309,6 @@ document.getElementById("imgSend").value=""
 
 render()
 
-notify()
-
 }
 
 function render(){
@@ -341,43 +317,89 @@ let chat=document.getElementById("chat")
 
 chat.innerHTML=""
 
-rooms[currentRoom].forEach(m=>{
+rooms[currentRoom].forEach((m,i)=>{
 
 let div=document.createElement("div")
 
 div.className="message"
 
+div.onclick=function(e){
+
+selectedIndex=i
+selectedRoom=currentRoom
+
+let menu=document.getElementById("menu")
+
+menu.style.display="block"
+menu.style.left=e.pageX+"px"
+menu.style.top=e.pageY+"px"
+
+}
+
+let html=""
+
+html+="<img class='avatar' src='"+m.avatar+"'>"
+html+="<div><b>"+m.user+"</b><br>"
+
 if(m.text){
 
-div.innerText=m.user+" : "+m.text
+html+=m.text
 
 }
 
 if(m.img){
 
-div.innerHTML=m.user+"<br><img src='"+m.img+"'>"
+html+="<br><img class='content-img' src='"+m.img+"'>"
 
 }
+
+if(m.like>0){
+
+html+="<br>👍 "+m.like
+
+}
+
+html+="</div>"
+
+div.innerHTML=html
 
 chat.appendChild(div)
 
 })
 
-document.getElementById("count").innerText=members[currentRoom].length
+}
+
+function deleteMsg(){
+
+rooms[selectedRoom].splice(selectedIndex,1)
+
+document.getElementById("menu").style.display="none"
+
+render()
 
 }
 
-function notify(){
+function likeMsg(){
 
-if(Notification.permission==="granted"){
+rooms[selectedRoom][selectedIndex].like++
 
-new Notification("新しいメッセージ")
+document.getElementById("menu").style.display="none"
 
-}else{
-
-Notification.requestPermission()
+render()
 
 }
+
+function copyMsg(){
+
+let m=rooms[selectedRoom][selectedIndex]
+
+if(m.text){
+
+navigator.clipboard.writeText(m.text)
+
+}
+
+document.getElementById("menu").style.display="none"
 
 }
 
