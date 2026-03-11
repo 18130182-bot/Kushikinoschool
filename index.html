@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>School Chat</title>
+<title>School Discord</title>
 
 <style>
 
@@ -16,6 +16,8 @@ color:white;
 display:flex;
 height:100vh;
 }
+
+/* 左チャンネル */
 
 #channels{
 width:220px;
@@ -31,6 +33,12 @@ cursor:pointer;
 margin:5px 0;
 background:#383a40;
 }
+
+.channel:hover{
+background:#4a4d54;
+}
+
+/* メイン */
 
 #main{
 flex:1;
@@ -48,6 +56,8 @@ flex:1;
 overflow-y:auto;
 padding:10px;
 }
+
+/* メッセージ */
 
 .message{
 display:flex;
@@ -67,6 +77,29 @@ max-width:200px;
 border-radius:6px;
 margin-top:5px;
 }
+
+/* 右メンバー */
+
+#members{
+width:200px;
+background:#2b2d31;
+padding:10px;
+}
+
+.member{
+display:flex;
+align-items:center;
+margin:6px 0;
+}
+
+.member img{
+width:25px;
+height:25px;
+border-radius:50%;
+margin-right:6px;
+}
+
+/* 入力 */
 
 #input{
 display:flex;
@@ -91,6 +124,8 @@ border-radius:6px;
 cursor:pointer;
 }
 
+/* メニュー */
+
 #menu{
 position:fixed;
 background:#1e1f22;
@@ -107,6 +142,8 @@ cursor:pointer;
 #menu div:hover{
 background:#444;
 }
+
+/* プロフィール */
 
 #setup{
 position:fixed;
@@ -136,10 +173,16 @@ border:none;
 
 <div id="channels">
 
+<h3>ルーム</h3>
+
 <input id="roomName" placeholder="部屋作成">
 <button onclick="createRoom()">作成</button>
 
 <div id="roomList"></div>
+
+<h3>DM</h3>
+
+<div id="dmList"></div>
 
 </div>
 
@@ -159,11 +202,23 @@ border:none;
 
 </div>
 
+<div id="members">
+
+<h3>メンバー</h3>
+
+<div id="memberList"></div>
+
+</div>
+
 <div id="menu">
 
 <div onclick="copyMsg()">コピー</div>
-<div onclick="likeMsg()">👍リアクション</div>
+<div onclick="react('👍')">👍</div>
+<div onclick="react('❤️')">❤️</div>
+<div onclick="react('😂')">😂</div>
+<div onclick="editMsg()">編集</div>
 <div onclick="deleteMsg()">削除</div>
+<div onclick="pinMsg()">📌ピン</div>
 
 </div>
 
@@ -183,10 +238,10 @@ border:none;
 let username=""
 let avatar="https://cdn-icons-png.flaticon.com/512/149/149071.png"
 
-let currentRoom=""
 let rooms={}
+let members=[]
+let currentRoom=""
 
-let selectedRoom=""
 let selectedIndex=0
 
 function start(){
@@ -205,16 +260,38 @@ if(file){
 let reader=new FileReader()
 
 reader.onload=function(e){
-
 avatar=e.target.result
-
 }
 
 reader.readAsDataURL(file)
 
 }
 
+members.push({name:username,avatar:avatar})
+
+updateMembers()
+
 document.getElementById("setup").style.display="none"
+
+}
+
+function updateMembers(){
+
+let list=document.getElementById("memberList")
+
+list.innerHTML=""
+
+members.forEach(m=>{
+
+let div=document.createElement("div")
+
+div.className="member"
+
+div.innerHTML="<img src='"+m.avatar+"'>🟢 "+m.name
+
+list.appendChild(div)
+
+})
 
 }
 
@@ -222,11 +299,7 @@ function createRoom(){
 
 let name=document.getElementById("roomName").value
 
-if(!rooms[name]){
-
-rooms[name]=[]
-
-}
+if(!rooms[name]) rooms[name]=[]
 
 updateRooms()
 
@@ -245,11 +318,7 @@ let div=document.createElement("div")
 div.className="channel"
 div.innerText="# "+r
 
-div.onclick=function(){
-
-join(r)
-
-}
+div.onclick=function(){join(r)}
 
 list.appendChild(div)
 
@@ -278,7 +347,7 @@ rooms[currentRoom].push({
 user:username,
 avatar:avatar,
 text:text,
-like:0
+react:[]
 })
 
 }
@@ -293,7 +362,7 @@ rooms[currentRoom].push({
 user:username,
 avatar:avatar,
 img:e.target.result,
-like:0
+react:[]
 })
 
 render()
@@ -305,8 +374,6 @@ reader.readAsDataURL(file)
 }
 
 document.getElementById("msg").value=""
-document.getElementById("imgSend").value=""
-
 render()
 
 }
@@ -320,13 +387,11 @@ chat.innerHTML=""
 rooms[currentRoom].forEach((m,i)=>{
 
 let div=document.createElement("div")
-
 div.className="message"
 
 div.onclick=function(e){
 
 selectedIndex=i
-selectedRoom=currentRoom
 
 let menu=document.getElementById("menu")
 
@@ -341,21 +406,13 @@ let html=""
 html+="<img class='avatar' src='"+m.avatar+"'>"
 html+="<div><b>"+m.user+"</b><br>"
 
-if(m.text){
+if(m.text) html+=m.text
 
-html+=m.text
+if(m.img) html+="<br><img class='content-img' src='"+m.img+"'>"
 
-}
+if(m.react.length>0){
 
-if(m.img){
-
-html+="<br><img class='content-img' src='"+m.img+"'>"
-
-}
-
-if(m.like>0){
-
-html+="<br>👍 "+m.like
+html+="<br>"+m.react.join(" ")
 
 }
 
@@ -371,35 +428,43 @@ chat.appendChild(div)
 
 function deleteMsg(){
 
-rooms[selectedRoom].splice(selectedIndex,1)
-
-document.getElementById("menu").style.display="none"
+rooms[currentRoom].splice(selectedIndex,1)
 
 render()
 
 }
 
-function likeMsg(){
+function react(r){
 
-rooms[selectedRoom][selectedIndex].like++
-
-document.getElementById("menu").style.display="none"
+rooms[currentRoom][selectedIndex].react.push(r)
 
 render()
+
+}
+
+function editMsg(){
+
+let text=prompt("編集")
+
+if(text){
+
+rooms[currentRoom][selectedIndex].text=text
+
+render()
+
+}
 
 }
 
 function copyMsg(){
 
-let m=rooms[selectedRoom][selectedIndex]
-
-if(m.text){
-
-navigator.clipboard.writeText(m.text)
+navigator.clipboard.writeText(rooms[currentRoom][selectedIndex].text)
 
 }
 
-document.getElementById("menu").style.display="none"
+function pinMsg(){
+
+alert("📌ピンしました")
 
 }
 
